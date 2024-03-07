@@ -2,22 +2,29 @@ package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
+import bgu.spl.net.impl.tftp.TftpProtocol;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.function.Supplier;
+import bgu.spl.net.impl.tftp.TftpProtocol;
+import bgu.spl.net.impl.tftp.TftpEncoderDecoder;
 
 public abstract class BaseServer<T> implements Server<T> {
 
     private final int port;
-    private final Supplier<MessagingProtocol<T>> protocolFactory;
-    private final Supplier<MessageEncoderDecoder<T>> encdecFactory;
+    private final Supplier<TftpProtocol> protocolFactory;
+    private final Supplier<TftpEncoderDecoder> encdecFactory;
     private ServerSocket sock;
+
+    //need to add a id counter
+    //need to add connections
 
     public BaseServer(
             int port,
-            Supplier<MessagingProtocol<T>> protocolFactory,
-            Supplier<MessageEncoderDecoder<T>> encdecFactory) {
+            Supplier<TftpProtocol> protocolFactory,
+            Supplier<TftpEncoderDecoder> encdecFactory) {
 
         this.port = port;
         this.protocolFactory = protocolFactory;
@@ -57,5 +64,7 @@ public abstract class BaseServer<T> implements Server<T> {
     }
 
     protected abstract void execute(BlockingConnectionHandler<T>  handler);
+    // handler.setid(counter++)
+    //hander.start
 
 }
