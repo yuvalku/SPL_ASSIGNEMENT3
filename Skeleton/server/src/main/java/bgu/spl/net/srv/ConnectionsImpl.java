@@ -3,16 +3,28 @@ package bgu.spl.net.srv;
 import java.io.IOException;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;;
 
 public class ConnectionsImpl implements Connections<byte[]> {
 
     private ConcurrentHashMap<Integer, BlockingConnectionHandler> clientsHandlers;
     private Vector<String> usernames;
+    private Vector<String> files;
 
     // constructor
     public ConnectionsImpl(){
+        
         clientsHandlers = new ConcurrentHashMap<Integer, BlockingConnectionHandler>();
         usernames = new Vector<String>();
+        files = new Vector<>();
+        
+        //add the exisiting files in Files folder 
+        File folder = new File("Files");
+        File[] f = folder.listFiles();
+        for(File file : f){
+            files.add(file.getName());
+        }
+        
     }
 
     // add a new handler and id to the hash map, called when socket connected
@@ -46,6 +58,33 @@ public class ConnectionsImpl implements Connections<byte[]> {
     // check if a username exists
     public boolean containsName(String username){
         return usernames.contains(username);
+    }
+
+    public byte[] getFileNames(){
+        Vector<byte[]> filebytes = new Vector<>();
+        int length = 0;
+
+        for (String file : files){
+            byte[] toAdd = file.getBytes();
+            filebytes.add(toAdd);
+            length += toAdd.length;
+        }
+
+        byte[] output = new byte[length + filebytes.size() - 1];
+        int index = 0;
+        for (byte[] arr : filebytes){
+            for (int i = 0; i < arr.length; i++){
+                output[index] = arr[i];
+                index++;
+            }
+            if (index < output.length) {
+                output[index] = (byte)0;
+                index++;
+            }
+        }
+
+        return output;
+
     }
     
 }

@@ -20,7 +20,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         }
         else if (len == 1){
             pushByte(nextByte);
-            opCode = (short)(((short)bytes[0]) << 8 | (short)(bytes[1]));
+            opCode = (short)(((short)bytes[0]) << 8 | (short)(bytes[1]) & 0x00ff);
             
             if (opCode == 6 | opCode == 10){
                 return createOutput();
