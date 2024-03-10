@@ -61,6 +61,10 @@ public class ConnectionsImpl implements Connections<byte[]> {
     }
 
     public byte[] getFileNames(){
+
+        if (files.isEmpty())
+            return new byte[0];
+
         Vector<byte[]> filebytes = new Vector<>();
         int length = 0;
 
@@ -84,7 +88,10 @@ public class ConnectionsImpl implements Connections<byte[]> {
         }
 
         return output;
+    }
 
+    public void removeFile(String name){
+        files.remove(name);
     }
     
 }

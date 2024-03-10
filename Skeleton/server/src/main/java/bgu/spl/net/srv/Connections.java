@@ -14,4 +14,8 @@ public interface Connections<T> {
     void addName(String username);
 
     boolean containsName(String username);
+
+    byte[] getFileNames();
+
+    public void removeFile(String name);
 }

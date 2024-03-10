@@ -5,6 +5,7 @@ import bgu.spl.net.srv.Connections;
 
 // Added
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -69,7 +70,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private String username;
     //private boolean loggedIn;
     private sendingFile toSend;
-    LinkedList<byte[]> pendingFiles;
+    // LinkedList<byte[]> pendingFiles;
 
     // private byte[] receivingFile;
     // private int RFindex;
@@ -82,7 +83,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.connections = connections;
         holder.ids_login.put(connectionId, false);
         toSend = null;
-        pendingFiles = new LinkedList<>();
+        // pendingFiles = new LinkedList<>();
         // receivingFile = null;
         // RFindex = 0;
     }
@@ -104,12 +105,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             if (file != null){
 
                 // if file exists, start sending it / add to pending files
-                if (toSend == null) {
+                // if (toSend == null) {
                     toSend = new sendingFile(file);
                     connections.send(connectionId, toSend.generatePacket());
-                }
-                else
-                    pendingFiles.addLast(file);
+                // }
+                // else
+                //     pendingFiles.addLast(file);
 
             }
             //send an ERROR packet
@@ -137,17 +138,30 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             
         }
 
+        // ACK
         else if (opCode == 4){
             
-        }
+            // WHAT TO DO WITH BLOCKNUM??????????????????
+            if (toSend.isFinished()){
+                toSend = null;
+            }
+            else{
+                connections.send(connectionId, toSend.generatePacket());
+            }
 
-        else if (opCode == 5){
-            
         }
 
         // DIRQ
         else if (opCode == 6){
             
+            byte[] fileNames = connections.getFileNames();
+
+            // if (toSend == null){
+                toSend = new sendingFile(fileNames);
+                connections.send(connectionId, toSend.generatePacket());
+            // }
+            // else
+            //     pendingFiles.addLast(fileNames);
         }
 
         // LOGRQ
@@ -172,21 +186,42 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
         }
 
+        // DELRQ
         else if (opCode == 8){
-            
-        }
 
-        else if (opCode == 9){
-            
+            // extract fileName from bytes
+            String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
+
+            // if file exists
+            if (fileExists("Files/" + fileName)){
+                connections.removeFile(fileName);
+                File tempFile = new File("Files/" + fileName);
+                tempFile.delete(); // check if really working
+                connections.send(connectionId, ack((short)0));
+            }
+
+            // if file doesn't exists
+            else{
+                connections.send(connectionId, createError((byte)1, " File not found"));
+            }
         }
 
         // Disc
         else{
-            // shouldTerminate = true;
-            // holder.ids_login.put(connectionId, false);
-            // connections.disconnect(connectionId);
-            // byte[] ack = {0, 4, 0, 0};
-            // connections.send(connectionId, ack);
+            
+            // if logged in send ack
+            if (holder.ids_login.get(connectionId)){
+                connections.send(connectionId, ack((short)0));
+            }
+
+            // if not logged in send error
+            else
+                connections.send(connectionId, createError((byte)6, "User no logged in"));
+
+            // remove from ids_login and from connections
+            holder.ids_login.remove(connectionId);
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
 
     }
