@@ -34,7 +34,8 @@ public abstract class BaseServer<T> implements Server<T> {
             this.sock = serverSock; //just to be able to close
 
             // Added
-            Connections<byte[]> con = new ConnectionsImpl();
+            Connections<byte[]> con = new ConnectionsImpl<byte[]>();
+            int idCounter = 0;
 
             while (!Thread.currentThread().isInterrupted()) {
 
@@ -43,7 +44,9 @@ public abstract class BaseServer<T> implements Server<T> {
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
                         clientSock,
                         encdecFactory.get(),
-                        protocolFactory.get());
+                        protocolFactory.get(),
+                        idCounter++,
+                        con);
 
                 execute(handler);
             }

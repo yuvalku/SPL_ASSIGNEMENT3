@@ -23,12 +23,16 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private volatile boolean connected = true;
 
     // Added
+    private int id;
+    private Connections<T> connections;
     private messageQueue<T> pendingMSG;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol) {
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, int id, Connections<T> connections) {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
+        this.id = id;
+        this.connections = connections;
         pendingMSG = new messageQueue<>();
     }
 
@@ -38,7 +42,8 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             int read;
             
             // Added
-            protocol.start(id, );
+            ((TftpProtocol)protocol).start(id, (Connections<byte[]>)connections); // Is this OK????????????????
+            connections.connect(id, this);
 
             in = new BufferedInputStream(sock.getInputStream());
             out = new BufferedOutputStream(sock.getOutputStream());
