@@ -25,11 +25,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
     // check if the client is logged in and send the message if it does, return if message sent successfully
     @Override
     public boolean send(int connectionId, T msg){
+        if (!clientsHandlers.containsKey(connectionId))
+            return false;
         ConnectionHandler<T> handler = clientsHandlers.get(connectionId);
-        boolean isLoggedIn = ((BlockingConnectionHandler<T>)handler).isLoggedIn();
-        if (isLoggedIn)
-            handler.send(msg);
-        return isLoggedIn;
+        handler.send(msg);
+        return true;
     }
 
     // remove the client from the hash map

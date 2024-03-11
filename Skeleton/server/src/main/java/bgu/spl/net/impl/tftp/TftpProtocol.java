@@ -69,6 +69,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private String uploadingFileName;
     private Queue<byte[]> uploadingFile;
     private int UFsize;
+    private final String directory = "..\\server\\Flies\\";
 
     @Override
     public void start(int connectionId, Connections<byte[]> connections) {
@@ -89,23 +90,22 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
         if (opCode != 7 && !holder.ids_login.get(connectionId)) {
             connections.send(connectionId, createError((byte)6, "User not logged in"));
-            return;
         }
 
         // RRQ
-        if (opCode == 1){
+        else if (opCode == 1){
 
             // extract file name and check if exists
             String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-            byte[] file = extractFile("Files/" + fileName);
+            byte[] file = extractFile(directory + fileName);
 
             // check if file exists
-            if (!fileExists("Files/" + fileName)){
+            if (!fileExists(directory + fileName)){
                 connections.send(connectionId, createError((byte)1, "File not found"));
             }
 
             // check if file is accessible
-            else if (!isAccessible("Files/" + fileName) || file == null){
+            else if (!isAccessible(directory + fileName) || file == null){
                 connections.send(connectionId, createError((byte)2, "Access violation"));
             }
             
@@ -171,14 +171,19 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             Vector<String> vec = new Vector<>();
 
             // insert all file names to the vector
-            String directoryPath = "Files";
-            try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(directoryPath))) {
-                for (Path filePath : directoryStream) {
-                    vec.add(filePath.getFileName().toString());
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            String directoryPath = "Files/";
+            File directory = new File(directoryPath);
+            File[] files = directory.listFiles();
+            for (int i = 0; i < files.length; i++)
+                vec.add(files[i].getName());
+
+            // try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(directoryPath))) {
+            //     for (Path filePath : directoryStream) {
+            //         vec.add(filePath.getFileName().toString());
+            //     }
+            // } catch (IOException e) {
+            //     e.printStackTrace();
+            // }
 
             // convert to an array of bytes and start sending to the client
             byte[] fileNames = getFileNames(vec);
@@ -320,9 +325,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         
         try {
             Path file = Paths.get(path);
-            byte[] output = Files.readAllBytes(file);     
+            byte[] output = Files.readAllBytes(file);
             return output;      
-        } catch (IOException e) {return null;}
+        } catch (IOException e) {e.printStackTrace(); return null;}
 
     }
 
