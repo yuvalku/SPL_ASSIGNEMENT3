@@ -4,7 +4,6 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 // Added
-import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -17,12 +16,6 @@ import java.util.Vector;
 import java.nio.file.DirectoryStream;
 
 
-class holder{
-
-    static ConcurrentHashMap<Integer, Boolean> ids_login = new ConcurrentHashMap<>();
-    static Vector<String> usernames = new Vector<>();
-    
-}
 
 class sendingFile{
 

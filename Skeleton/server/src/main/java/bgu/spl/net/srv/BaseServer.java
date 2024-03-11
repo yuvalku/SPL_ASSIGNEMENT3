@@ -1,6 +1,7 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
+import bgu.spl.net.impl.tftp.ConnectionsImpl;
 import bgu.spl.net.api.BidiMessagingProtocol;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -32,10 +33,9 @@ public abstract class BaseServer<T> implements Server<T> {
 			System.out.println("Server started");
 
             this.sock = serverSock; //just to be able to close
-
+            
             // Added
-            Connections<byte[]> con = new ConnectionsImpl<byte[]>();
-            int idCounter = 0;
+            Connections<T> connections = new ConnectionsImpl<>();
 
             while (!Thread.currentThread().isInterrupted()) {
 
@@ -45,8 +45,7 @@ public abstract class BaseServer<T> implements Server<T> {
                         clientSock,
                         encdecFactory.get(),
                         protocolFactory.get(),
-                        idCounter++,
-                        con);
+                        connections);
 
                 execute(handler);
             }

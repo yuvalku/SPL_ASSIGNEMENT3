@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.impl.tftp.TftpProtocol;
 
@@ -12,6 +11,7 @@ import java.net.Socket;
 
 // Added
 import java.util.Vector;
+import bgu.spl.net.impl.tftp.holder;
 
 public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler<T> {
 
@@ -23,15 +23,13 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private volatile boolean connected = true;
 
     // Added
-    private int id;
-    private Connections<T> connections;
+    Connections<T> connections;
     private messageQueue<T> pendingMSG;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, int id, Connections<T> connections) {
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, Connections<T> connections) {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
-        this.id = id;
         this.connections = connections;
         pendingMSG = new messageQueue<>();
     }
@@ -40,13 +38,14 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     public void run() {
         try (Socket sock = this.sock) { //just for automatic closing
             int read;
-            
-            // Added
-            ((TftpProtocol)protocol).start(id, (Connections<byte[]>)connections); // Is this OK????????????????
-            connections.connect(id, this);
 
             in = new BufferedInputStream(sock.getInputStream());
             out = new BufferedOutputStream(sock.getOutputStream());
+
+            // Added
+            int id = holder.getMyId();
+            connections.connect(id, this);
+            protocol.start(id, connections);
 
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
