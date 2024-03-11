@@ -69,7 +69,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private String uploadingFileName;
     private Queue<byte[]> uploadingFile;
     private int UFsize;
-    private final String directory = "..\\server\\Flies\\";
+    private final String directory = "C:\\Users\\omria\\OneDrive\\Desktop\\Assignment3\\SPL_ASSIGNEMENT3\\Skeleton\\server\\Flies";
+
+    // C:\Users\omria\OneDrive\Desktop\Assignment3\SPL_ASSIGNEMENT3\Skeleton\server\Flies
+    // C:\Users\omria\OneDrive\Desktop\Assignment3\SPL_ASSIGNEMENT3\Skeleton\server\src\main\java\bgu\spl\net\impl\tftp\TftpServer.java
 
     @Override
     public void start(int connectionId, Connections<byte[]> connections) {
@@ -97,15 +100,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
             // extract file name and check if exists
             String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-            byte[] file = extractFile(directory + fileName);
+            byte[] file = extractFile(directory + "\\" + fileName);
 
             // check if file exists
-            if (!fileExists(directory + fileName)){
+            if (!fileExists(directory + "\\" + fileName)){
                 connections.send(connectionId, createError((byte)1, "File not found"));
             }
 
             // check if file is accessible
-            else if (!isAccessible(directory + fileName) || file == null){
+            else if (!isAccessible(directory + "\\" + fileName) || file == null){
                 connections.send(connectionId, createError((byte)2, "Access violation"));
             }
             
@@ -121,7 +124,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
             // extract file name and check if exists
             uploadingFileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-            if (fileExists("Files/" + uploadingFileName)){
+            if (fileExists(directory + "\\" + uploadingFileName)){
                 connections.send(connectionId, createError((byte)5, "File already exists"));
             }
 
@@ -171,9 +174,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             Vector<String> vec = new Vector<>();
 
             // insert all file names to the vector
-            String directoryPath = "Files/";
-            File directory = new File(directoryPath);
-            File[] files = directory.listFiles();
+            File _directory = new File(directory);
+            File[] files = _directory.listFiles();
             for (int i = 0; i < files.length; i++)
                 vec.add(files[i].getName());
 
@@ -221,8 +223,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
 
             // if file exists
-            if (fileExists("Files/" + fileName)){
-                File tempFile = new File("Files/" + fileName);
+            if (fileExists(directory + "\\" + fileName)){
+                File tempFile = new File(directory + "\\" + fileName);
                 tempFile.delete(); // check if really working
                 connections.send(connectionId, ack((byte)0,(byte)0));
                 broadCast(fileName, false);
@@ -331,9 +333,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     }
 
-    private static boolean addNewFile(String fileName, byte[] file){
+    private boolean addNewFile(String fileName, byte[] file){
 
-        Path filePath = Paths.get("Files", fileName);
+        Path filePath = Paths.get(directory, fileName);
         try {
             Files.write(filePath, file);
         } catch (IOException e) { return false;}
