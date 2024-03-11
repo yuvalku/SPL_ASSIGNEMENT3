@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.io.FileOutputStream;
+import java.util.Queue;
 
 
 class holder{
@@ -68,12 +69,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private int connectionId;
     private Connections<byte[]> connections;
     private String username;
-    //private boolean loggedIn;
     private sendingFile toSend;
-    // LinkedList<byte[]> pendingFiles;
-
-    // private byte[] receivingFile;
-    // private int RFindex;
+    private String uploadingFileName;
+    private Queue<byte[]> uploadingFile;
+    private int UFsize;
 
     @Override
     public void start(int connectionId, Connections<byte[]> connections) {
@@ -83,9 +82,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.connections = connections;
         holder.ids_login.put(connectionId, false);
         toSend = null;
-        // pendingFiles = new LinkedList<>();
-        // receivingFile = null;
-        // RFindex = 0;
+        uploadingFile = new LinkedList<>();
+        UFsize = 0;
     }
 
     @Override
@@ -93,8 +91,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         
         short opCode = (short)(((short)message[0]) << 8 | (short)(message[1]) & 0x00ff);
 
-        if (opCode != 7 && !holder.ids_login.get(connectionId))
+        if (opCode != 7 && !holder.ids_login.get(connectionId)) {
             connections.send(connectionId, createError((byte)6, "User not logged in"));
+            return;
+        }
 
         // RRQ
         if (opCode == 1){
@@ -102,20 +102,21 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             // extract file name and check if exists
             String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
             byte[] file = extractFile("Files/" + fileName);
-            if (file != null){
 
-                // if file exists, start sending it / add to pending files
-                // if (toSend == null) {
-                    toSend = new sendingFile(file);
-                    connections.send(connectionId, toSend.generatePacket());
-                // }
-                // else
-                //     pendingFiles.addLast(file);
-
-            }
-            //send an ERROR packet
-            else{ 
+            // check if file exists
+            if (!fileExists("Files/" + fileName)){
                 connections.send(connectionId, createError((byte)1, "File not found"));
+            }
+
+            // check if file is accessible
+            else if (!isAccessible("Files/" + fileName) || file == null){
+                connections.send(connectionId, createError((byte)2, "Access violation"));
+            }
+            
+            // if file exists, start sending it
+            else{
+                toSend = new sendingFile(file);
+                connections.send(connectionId, toSend.generatePacket());
             }
         }
 
@@ -123,12 +124,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         else if (opCode == 2){
 
             // extract file name and check if exists
-            String fileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
-            if (fileExists("Files/" + fileName)){
+            uploadingFileName = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
+            if (fileExists("Files/" + uploadingFileName)){
                 connections.send(connectionId, createError((byte)5, "File already exists"));
             }
+
+            // if doesn't exists start uploading
             else{
-                connections.send(connectionId, ack((short)0));
+                connections.send(connectionId, ack((byte)0,(byte)0));
             }
 
         }
@@ -136,16 +139,33 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         // DATA
         else if (opCode == 3){
             
+            // add data packet to queue
+            uploadingFile.add(message);
+
+            // send acknowledgment
+            connections.send(connectionId, ack(message[4], message[5]));
+
+            // check data's size
+            short packetSize = (short)(((short)message[2]) << 8 | (short)(message[3]) & 0x00ff);
+            UFsize += packetSize;
+
+            // if packetSize < 512, this is the last packet
+            if (packetSize < 512){
+                byte[] file = buildFileBytes(uploadingFile);
+                if (addNewFile(uploadingFileName, file)){
+                    connections.addFile(uploadingFileName);
+                    broadCast(uploadingFileName, true);
+                }
+                else{
+                    connections.send(connectionId, createError((byte)3,"Disk full or allocation exceeded"));
+                }
+            }
         }
 
         // ACK
         else if (opCode == 4){
             
-            // WHAT TO DO WITH BLOCKNUM??????????????????
-            if (toSend.isFinished()){
-                toSend = null;
-            }
-            else{
+            if (!toSend.isFinished()){
                 connections.send(connectionId, toSend.generatePacket());
             }
 
@@ -155,13 +175,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         else if (opCode == 6){
             
             byte[] fileNames = connections.getFileNames();
-
-            // if (toSend == null){
-                toSend = new sendingFile(fileNames);
-                connections.send(connectionId, toSend.generatePacket());
-            // }
-            // else
-            //     pendingFiles.addLast(fileNames);
+            toSend = new sendingFile(fileNames);
+            connections.send(connectionId, toSend.generatePacket());
         }
 
         // LOGRQ
@@ -181,7 +196,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //if there is no active client with this username, register it
             else {
                 holder.ids_login.put(connectionId, true);
-                connections.send(connectionId, ack((short)0));
+                connections.send(connectionId, ack((byte)0,(byte)0));
             }
 
         }
@@ -197,7 +212,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 connections.removeFile(fileName);
                 File tempFile = new File("Files/" + fileName);
                 tempFile.delete(); // check if really working
-                connections.send(connectionId, ack((short)0));
+                connections.send(connectionId, ack((byte)0,(byte)0));
+                broadCast(fileName, false);
             }
 
             // if file doesn't exists
@@ -211,7 +227,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             
             // if logged in send ack
             if (holder.ids_login.get(connectionId)){
-                connections.send(connectionId, ack((short)0));
+                connections.send(connectionId, ack((byte)0,(byte)0));
             }
 
             // if not logged in send error
@@ -256,7 +272,24 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     }
 
     //BCAST
-    private void broadCast(byte[] msg){
+    private void broadCast(String fileName, boolean isAdded){
+        
+        // create the relevant message
+        byte[] bytesName = fileName.getBytes();
+        byte[] msg = new byte[bytesName.length + 3];
+        msg[0] = (byte)0;
+        msg[1] = (byte)9;
+        if(isAdded){
+            msg[2] = (byte)1;
+        }
+        else{
+            msg[2] = (byte)0;
+        }
+        for(int i = 0; i < bytesName.length ; i++){
+            msg[i+3] = bytesName[i];
+        }
+
+        // send message to all logged in clients
         holder.ids_login.forEach((key, logged) -> {
             if (logged == true){
                 connections.send(key, msg);
@@ -266,37 +299,76 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private static boolean fileExists(String filePath) {
         Path path = Paths.get(filePath);
-        return Files.exists(path) && Files.isRegularFile(path);
+        return Files.exists(path);
+    }
+
+    private static boolean isAccessible(String filePath){
+        Path path = Paths.get(filePath);
+        return Files.isRegularFile(path);
     }
 
 
     private static byte[] extractFile(String path){
+        
+        try {
+            Path file = Paths.get(path);
+            byte[] output = Files.readAllBytes(file);     
+            return output;      
+        } catch (IOException e) {return null;}
 
-        try (FileInputStream fis = new FileInputStream(path)) {
-            long fileSize = fis.available();
 
-            byte[] fileBytes = new byte[(int) fileSize];
+        // try (FileInputStream fis = new FileInputStream(path)) {
+        //     long fileSize = fis.available();
 
-            fis.read(fileBytes);
+        //     byte[] fileBytes = new byte[(int) fileSize];
 
-            return fileBytes;
-        } catch (IOException e) {return null;} 
+        //     fis.read(fileBytes);
+
+        //     return fileBytes;
+        // } catch (IOException e) {return null;} 
     }
 
-    private static void createFileFromBytes(byte[] fileData, String fileName) {
-        try (FileOutputStream fos = new FileOutputStream(fileName)) {
-            fos.write(fileData);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private static boolean addNewFile(String fileName, byte[] file){
+
+        Path filePath = Paths.get("Files", fileName);
+        try {
+            Files.write(filePath, file);
+        } catch (IOException e) { return false;}
+        return true;
     }
 
-    private byte[] ack(short blockNum){
+    // private static void createFileFromBytes(byte[] fileData, String fileName) {
+    //     try (FileOutputStream fos = new FileOutputStream(fileName)) {
+    //         fos.write(fileData);
+
+    //         fos.close();
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //     }
+    // }
+
+    private byte[] ack(byte first, byte second){
         byte[] output = new byte[4];
         output[0] = (byte)0;
         output[1] = (byte)4;
-        output[2] = (byte)((blockNum >> 8) & 0xFF);
-        output[3] = (byte)(blockNum & 0xFF);
+        output[2] = first;
+        output[3] = second;
         return output;
+    }
+
+    private byte[] buildFileBytes(Queue<byte[]> queue){
+
+        byte[] file = new byte[UFsize];
+        int index = 0;
+        while (!queue.isEmpty()){
+            byte[] curr = queue.poll();
+            for (int i = 6; i < curr.length; i++){
+                file[index] = curr[i];
+                index++;
+            }
+        }
+
+        UFsize = 0;
+        return file;
     }
 }

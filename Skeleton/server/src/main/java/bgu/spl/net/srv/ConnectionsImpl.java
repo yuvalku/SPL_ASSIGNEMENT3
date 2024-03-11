@@ -93,5 +93,9 @@ public class ConnectionsImpl implements Connections<byte[]> {
     public void removeFile(String name){
         files.remove(name);
     }
+
+    public void addFile(String name){
+        files.add(name);
+    }
     
 }

@@ -18,4 +18,6 @@ public interface Connections<T> {
     byte[] getFileNames();
 
     public void removeFile(String name);
+
+    void addFile(String name);
 }
