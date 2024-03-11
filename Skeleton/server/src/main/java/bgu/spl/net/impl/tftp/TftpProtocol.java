@@ -6,19 +6,22 @@ import bgu.spl.net.srv.Connections;
 // Added
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedList;
-import java.io.FileOutputStream;
 import java.util.Queue;
+import java.util.Vector;
+import java.nio.file.DirectoryStream;
 
 
 class holder{
+
     static ConcurrentHashMap<Integer, Boolean> ids_login = new ConcurrentHashMap<>();
+    static Vector<String> usernames = new Vector<>();
+    
 }
 
 class sendingFile{
@@ -138,7 +141,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
         // DATA
         else if (opCode == 3){
-            
             // add data packet to queue
             uploadingFile.add(message);
 
@@ -153,7 +155,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             if (packetSize < 512){
                 byte[] file = buildFileBytes(uploadingFile);
                 if (addNewFile(uploadingFileName, file)){
-                    connections.addFile(uploadingFileName);
                     broadCast(uploadingFileName, true);
                 }
                 else{
@@ -174,7 +175,20 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         // DIRQ
         else if (opCode == 6){
             
-            byte[] fileNames = connections.getFileNames();
+            Vector<String> vec = new Vector<>();
+
+            // insert all file names to the vector
+            String directoryPath = "Files";
+            try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(directoryPath))) {
+                for (Path filePath : directoryStream) {
+                    vec.add(filePath.getFileName().toString());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            // convert to an array of bytes and start sending to the client
+            byte[] fileNames = getFileNames(vec);
             toSend = new sendingFile(fileNames);
             connections.send(connectionId, toSend.generatePacket());
         }
@@ -186,7 +200,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             username = new String(message, 2, message.length - 2, StandardCharsets.UTF_8);
 
             // if username is taken
-            if (connections.containsName(username))
+            if (holder.usernames.contains(username))
                 connections.send(connectionId, createError((byte)7, "User already logged in"));
             
             // if client already logged in
@@ -196,6 +210,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //if there is no active client with this username, register it
             else {
                 holder.ids_login.put(connectionId, true);
+                holder.usernames.add(username);
                 connections.send(connectionId, ack((byte)0,(byte)0));
             }
 
@@ -209,7 +224,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
             // if file exists
             if (fileExists("Files/" + fileName)){
-                connections.removeFile(fileName);
                 File tempFile = new File("Files/" + fileName);
                 tempFile.delete(); // check if really working
                 connections.send(connectionId, ack((byte)0,(byte)0));
@@ -236,6 +250,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
             // remove from ids_login and from connections
             holder.ids_login.remove(connectionId);
+            holder.usernames.remove(username);
             connections.disconnect(connectionId);
             shouldTerminate = true;
         }
@@ -316,16 +331,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             return output;      
         } catch (IOException e) {return null;}
 
-
-        // try (FileInputStream fis = new FileInputStream(path)) {
-        //     long fileSize = fis.available();
-
-        //     byte[] fileBytes = new byte[(int) fileSize];
-
-        //     fis.read(fileBytes);
-
-        //     return fileBytes;
-        // } catch (IOException e) {return null;} 
     }
 
     private static boolean addNewFile(String fileName, byte[] file){
@@ -336,16 +341,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         } catch (IOException e) { return false;}
         return true;
     }
-
-    // private static void createFileFromBytes(byte[] fileData, String fileName) {
-    //     try (FileOutputStream fos = new FileOutputStream(fileName)) {
-    //         fos.write(fileData);
-
-    //         fos.close();
-    //     } catch (IOException e) {
-    //         e.printStackTrace();
-    //     }
-    // }
 
     private byte[] ack(byte first, byte second){
         byte[] output = new byte[4];
@@ -370,5 +365,35 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
         UFsize = 0;
         return file;
+    }
+
+    private static byte[] getFileNames(Vector<String> files){
+
+        if (files.isEmpty())
+            return new byte[0];
+
+        Vector<byte[]> filebytes = new Vector<>();
+        int length = 0;
+
+        for (String file : files){
+            byte[] toAdd = file.getBytes();
+            filebytes.add(toAdd);
+            length += toAdd.length;
+        }
+
+        byte[] output = new byte[length + filebytes.size() - 1];
+        int index = 0;
+        for (byte[] arr : filebytes){
+            for (int i = 0; i < arr.length; i++){
+                output[index] = arr[i];
+                index++;
+            }
+            if (index < output.length) {
+                output[index] = (byte)0;
+                index++;
+            }
+        }
+
+        return output;
     }
 }
