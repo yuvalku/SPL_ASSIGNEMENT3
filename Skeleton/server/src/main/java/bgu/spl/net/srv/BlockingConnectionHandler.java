@@ -25,7 +25,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     // Added
     Connections<T> connections;
     private messageQueue<T> pendingMSG;
-    Thread myThread;
 
     public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, Connections<T> connections) {
         this.sock = sock;
@@ -47,7 +46,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             int id = holder.getMyId();
             connections.connect(id, this);
             protocol.start(id, connections);
-            myThread = Thread.currentThread();
             boolean readOK = true;
 
             while (!protocol.shouldTerminate() && connected && readOK) {
