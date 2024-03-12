@@ -93,8 +93,8 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     @Override
     public byte[] encode(byte[] message) {
 
-        short _opCode = (short)(((short)message[0]) << 8 | (short)(message[1]));
-        if (_opCode == 7 | _opCode == 8 | _opCode == 1 | _opCode == 2 | opCode == 9 | _opCode == 5) {
+        short _opCode = (short)(((short)message[0]) << 8 | (short)(message[1]) & 0x00ff);
+        if (_opCode == 7 | _opCode == 8 | _opCode == 1 | _opCode == 2 | _opCode == 9 | _opCode == 5) {
             byte[] output = new byte[message.length + 1];
             output[output.length - 1] = 0;
             for (int i = 0; i < output.length - 1; i++)
