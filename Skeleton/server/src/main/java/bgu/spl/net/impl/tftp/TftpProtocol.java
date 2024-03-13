@@ -172,16 +172,25 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             
             Vector<String> vec = new Vector<>();
 
-            // insert all file names to the vector
+            // extract files from directory
             File _directory = new File(directory);
             File[] files = _directory.listFiles();
-            for (int i = 0; i < files.length; i++)
-                vec.add(files[i].getName());
 
-            // convert to an array of bytes and start sending to the client
-            byte[] fileNames = getFileNames(vec);
-            toSend = new sendingFile(fileNames);
-            connections.send(connectionId, toSend.generatePacket());
+            // check if directory is empty
+            if (files == null || files.length == 0){
+                connections.send(connectionId, createError((byte)0, "Directory is empty"));
+            }
+            else {
+
+                // insert all file names to the vector
+                for (int i = 0; i < files.length; i++)
+                    vec.add(files[i].getName());
+
+                // convert to an array of bytes and start sending to the client
+                byte[] fileNames = getFileNames(vec);
+                toSend = new sendingFile(fileNames);
+                connections.send(connectionId, toSend.generatePacket());
+            }
         }
 
         // LOGRQ
