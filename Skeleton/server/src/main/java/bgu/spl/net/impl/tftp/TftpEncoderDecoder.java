@@ -47,8 +47,10 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
 
         // BCAST
         else if (opCode == 9){
-            if (len == 2)
+            if (len == 2) {
                 pushByte(nextByte);
+                return null;
+            }
             else if (nextByte != 0){
                 pushByte(nextByte);
                 return null;
