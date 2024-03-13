@@ -178,14 +178,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             for (int i = 0; i < files.length; i++)
                 vec.add(files[i].getName());
 
-            // try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(directoryPath))) {
-            //     for (Path filePath : directoryStream) {
-            //         vec.add(filePath.getFileName().toString());
-            //     }
-            // } catch (IOException e) {
-            //     e.printStackTrace();
-            // }
-
             // convert to an array of bytes and start sending to the client
             byte[] fileNames = getFileNames(vec);
             toSend = new sendingFile(fileNames);
@@ -224,7 +216,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             // if file exists
             if (fileExists(directory + "\\" + fileName)){
                 File tempFile = new File(directory + "\\" + fileName);
-                tempFile.delete(); // check if really working
+                tempFile.delete(); 
                 connections.send(connectionId, ack((byte)0,(byte)0));
                 broadCast(fileName, false);
             }

@@ -15,13 +15,16 @@ import bgu.spl.net.api.MessagingProtocol;
 public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
     private boolean shouldTerminate;
-    short flag = -1;
+    private Object termiLock = new Object();
+    private short flag = -1; 
+    private Object flagLock = new Object();
     private Queue<byte[]> uploadingFile = new LinkedList<>();
     private int UFsize = 0;
     private String uploadingFileName;
     private final String directory = "Skeleton\\client";
     private sendingFile toSend = null;
     private Path pathToNewFile;
+    private String wrqfileName;
 
     
     public byte[] process(byte[] msg) {
@@ -45,11 +48,11 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             if (packetSize < 512) {
                  
                 // RRQ
-                if (flag == 1){
+                if (readFlag() == 1){
                     byte[] file = buildFileBytes(uploadingFile);
                     addNewFile(file);
                     System.out.println("RRQ " + uploadingFileName + " complete");
-                    flag = -1;
+                    setFlag((short)-1);
                 }
                 
                 //DIRQ
@@ -61,7 +64,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                         System.out.println(s);
                     }
                     System.out.println();
-                    flag = -1;
+                    setFlag((short)-1);
                 }
             }
         }
@@ -73,22 +76,22 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             System.out.println("ACK " + blockNum);
 
             // handle DATA packet if needed
-            if (flag == 2) {
+            if (readFlag() == 2) {
                 if (toSend.isFinished()){
-                    flag = -1;
-                    System.out.println("WRQ " + uploadingFileName + " complete");
+                    setFlag((short)-1);
+                    System.out.println("WRQ " + wrqfileName + " complete");
                 }
                 else
-                    output = toSend.generatePacket();              
+                    output = toSend.generatePacket();
             }
 
             // handle disconnect
-            else if (flag == 10)
-                shouldTerminate = true;
+            else if (readFlag() == 10)
+                terminate();
 
             // check if need to reset flag
-            if (blockNum == 0 & flag != 2)
-                flag = -1;
+            if (blockNum == 0 & readFlag() != 2)
+                setFlag((short)-1);
 
         }
 
@@ -101,7 +104,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             else
                 added = "Deleted";
             
-            String toPrint = new String(msg, 3, msg.length - 1, StandardCharsets.UTF_8);
+            String toPrint = new String(msg, 3, msg.length - 3, StandardCharsets.UTF_8);
             System.out.println("BCAST " + added + " " + toPrint);
         }
 
@@ -110,11 +113,11 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
             // print error
             short errorNum = (short)(((short)msg[2]) << 8 | (short)(msg[3]) & 0x00ff);
-            String errorMsg = new String(msg, 4, msg.length - 1, StandardCharsets.UTF_8);
+            String errorMsg = new String(msg, 4, msg.length - 4, StandardCharsets.UTF_8);
             System.out.println("Error " + errorNum + " " + errorMsg);
 
             // RRQ ERROR
-            if (flag == 1){
+            if (readFlag() == 1){
 
                 // delete file from directory
                 File tempFile = new File(directory + "\\" + uploadingFileName);
@@ -127,16 +130,17 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             }
 
             // DISC ERROR
-            if (flag == 10)
-                shouldTerminate = true;
+            if (readFlag() == 10)
+                terminate();
 
             // Reset flag
-            flag = -1;
+            setFlag((short)-1);
         }
 
         return output;
     }
 
+    ////////////////////keyboardProcess////////////////////
     public byte[] keyboardProcess(String str){
 
         byte[] output = null;
@@ -145,7 +149,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
         if (cmd == "LOGRQ"){
 
-            flag = 7;
+            setFlag((short)7);
 
             // extract name and create logrq packet
             String name = input[1];
@@ -159,7 +163,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
         else if (cmd == "DELRQ"){
 
-            flag = 8;
+            setFlag((short)8);
 
             // extract name and create delrq packet
             String file = input[1];
@@ -181,7 +185,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             else {
 
                 // set flag
-                flag = 1;
+                setFlag((short)1);
                 
                 // create path
                 pathToNewFile = Paths.get(directory, uploadingFileName);
@@ -197,19 +201,19 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
         else if (cmd == "WRQ"){
 
-            String file = input[1];
-            if (!fileExists(directory + "\\" + file))
+            wrqfileName = input[1];
+            if (!fileExists(directory + "\\" + wrqfileName))
                 System.out.println("file does not exists");
 
             else {
 
                 // set flag
-                flag = 2;
+                setFlag((short)2);
 
                 // set toSend
-                toSend = new sendingFile(extractFile(directory + "\\" + file));
+                toSend = new sendingFile(extractFile(directory + "\\" + wrqfileName));
 
-                byte[] fileName = file.getBytes();
+                byte[] fileName = wrqfileName.getBytes();
                 output = new byte[fileName.length + 2];
                 output[0] = (byte)0;
                 output[1] = (byte)1;
@@ -219,12 +223,14 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         }
 
         else if (cmd == "DIRQ"){
+            setFlag((short)6);
             output = new byte[2];
             output[0] = (byte)0;
             output[1] = (byte)6;
         }
 
         else if (cmd == "DISC"){
+            setFlag((short)10);
             output = new byte[2];
             output[0] = (byte)0;
             output[1] = (byte)10;
@@ -238,8 +244,14 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
 
     public boolean shouldTerminate() {
-        return shouldTerminate;
-    } 
+        boolean output;
+        synchronized (termiLock) {output = shouldTerminate;}
+        return output;
+    }
+
+    private void terminate(){
+        synchronized (termiLock) {shouldTerminate = true;}
+    }
 
     private byte[] ack(byte first, byte second){
         byte[] output = new byte[4];
@@ -250,7 +262,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         return output;
     }
 
-
+    //listening Thread
     private byte[] buildFileBytes(Queue<byte[]> queue){
 
         byte[] file = new byte[UFsize];
@@ -266,7 +278,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         UFsize = 0;
         return file;
     }
-
+    //listening Thread
     private boolean addNewFile(byte[] file){
 
         try {
@@ -275,6 +287,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         return true;
     }
 
+    //listening Thread
     private Vector<String> buildFileNames(Queue<byte[]> queue){
 
         Vector<String> output = new Vector<>();
@@ -296,22 +309,24 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         while (index < allbytes.length) {
 
             if (allbytes[index] == (byte)0){
-                output.add(new String(allbytes, start, index - 1, StandardCharsets.UTF_8));
+                output.add(new String(allbytes, start, index - start, StandardCharsets.UTF_8));
                 start = index + 1;
             }
             index++;
         }
 
-        output.add(new String(allbytes, start, allbytes.length - 1, StandardCharsets.UTF_8));
+        output.add(new String(allbytes, start, allbytes.length - start, StandardCharsets.UTF_8));
 
         return output;
     }
-
+    
+    // keyboard thread
     private static boolean fileExists(String filePath) {
         Path path = Paths.get(filePath);
         return Files.exists(path);
     }
 
+    // keyboard thread
     private static byte[] extractFile(String path){
         
         try {
@@ -320,6 +335,16 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             return output;      
         } catch (IOException e) {e.printStackTrace(); return null;}
 
+    }
+
+    private int readFlag(){
+        int output;
+        synchronized (flagLock) {output = flag;}
+        return output;
+    }
+
+    private void setFlag(short num){
+        synchronized (flagLock) {flag = num;}
     }
 }
 
