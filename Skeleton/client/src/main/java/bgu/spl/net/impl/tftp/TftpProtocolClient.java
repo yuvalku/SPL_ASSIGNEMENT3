@@ -26,6 +26,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
     private Path pathToNewFile;
     private String wrqfileName;
     private Object waitingLock = new Object();
+    private boolean toWait = true;
 
     
     public byte[] process(byte[] msg) {
@@ -186,8 +187,10 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
             // extract name and create rrq packet if doesn't exists here
             uploadingFileName = input[1];
-            if (fileExists(directory + "\\" + uploadingFileName))
+            if (fileExists(directory + "\\" + uploadingFileName)){
                 System.out.println("file already exists");
+                toWait = false;
+            }
 
             else {
 
@@ -209,8 +212,10 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         else if (cmd.equals("WRQ")){
 
             wrqfileName = input[1];
-            if (!fileExists(directory + "\\" + wrqfileName))
+            if (!fileExists(directory + "\\" + wrqfileName)){
                 System.out.println("file does not exists");
+                toWait = false;
+            }
 
             else {
 
@@ -355,11 +360,14 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
     }
 
     public void waitForResponse(){
-        synchronized (waitingLock) {
-            try {
-                waitingLock.wait();
-            } catch (InterruptedException e) {}
+        if (toWait) {
+            synchronized (waitingLock) {
+                try {
+                    waitingLock.wait();
+                } catch (InterruptedException e) {}
+            }
         }
+        toWait = true;
     }
 
     private void wakeKeyboard(){
