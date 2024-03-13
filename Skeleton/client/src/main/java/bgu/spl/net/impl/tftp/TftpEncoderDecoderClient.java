@@ -80,8 +80,10 @@ public class TftpEncoderDecoderClient implements MessageEncoderDecoder<byte[]> {
 
         // ERROR
         else {
-            if (len < 4)
+            if (len < 4) {
                 pushByte(nextByte);
+                return null;
+            }
             else if (nextByte != 0){
                 pushByte(nextByte);
                 return null;

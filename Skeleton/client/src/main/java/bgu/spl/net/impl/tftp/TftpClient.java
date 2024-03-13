@@ -13,8 +13,17 @@ public class TftpClient {
 
     public static void main(String[] args) throws IOException{
 
+        if (args.length == 0) {
+            args = new String[]{"localhost", "7777"};
+        }
+
+        if (args.length < 2) {
+            System.out.println("you must supply two arguments: host, message");
+            System.exit(1);
+        }
+
         String serverIP = args[0];
-        int serverPort =  Integer.parseInt(args[1]); // NEED TO IMPLEMENT IF????????????????????
+        int serverPort =  Integer.parseInt(args[1]); 
         Scanner keyboard = new Scanner(System.in);
         messageQueue<byte[]> pendingMsg = new messageQueue<>();
 

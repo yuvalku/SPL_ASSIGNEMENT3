@@ -147,7 +147,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
         String[] input = str.split("\\s+");
         String cmd = input[0];
 
-        if (cmd == "LOGRQ"){
+        if (cmd.equals("LOGRQ")){
 
             setFlag((short)7);
 
@@ -161,7 +161,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                 output[i + 2] = bytesName[i];
         }
 
-        else if (cmd == "DELRQ"){
+        else if (cmd.equals("DELRQ")){
 
             setFlag((short)8);
 
@@ -175,7 +175,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                 output[i + 2] = fileName[i];
         }
 
-        else if (cmd == "RRQ"){
+        else if (cmd.equals("RRQ")){
 
             // extract name and create rrq packet if doesn't exists here
             uploadingFileName = input[1];
@@ -199,7 +199,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             }
         }
 
-        else if (cmd == "WRQ"){
+        else if (cmd.equals("WRQ")){
 
             wrqfileName = input[1];
             if (!fileExists(directory + "\\" + wrqfileName))
@@ -222,14 +222,14 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
             }
         }
 
-        else if (cmd == "DIRQ"){
+        else if (cmd.equals("DIRQ")){
             setFlag((short)6);
             output = new byte[2];
             output[0] = (byte)0;
             output[1] = (byte)6;
         }
 
-        else if (cmd == "DISC"){
+        else if (cmd.equals("DISC")){
             setFlag((short)10);
             output = new byte[2];
             output[0] = (byte)0;
