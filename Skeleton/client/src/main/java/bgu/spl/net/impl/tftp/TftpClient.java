@@ -73,6 +73,7 @@ public class TftpClient {
                 byte[] toEx = protocol.keyboardProcess(input);
                 if (toEx != null)
                     pendingMsg.put(toEx);
+                protocol.waitForResponse();
             }
         });
 

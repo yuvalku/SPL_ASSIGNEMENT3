@@ -25,6 +25,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
     private sendingFile toSend = null;
     private Path pathToNewFile;
     private String wrqfileName;
+    private Object waitingLock = new Object();
 
     
     public byte[] process(byte[] msg) {
@@ -66,6 +67,8 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                     System.out.println();
                     setFlag((short)-1);
                 }
+
+                wakeKeyboard();
             }
         }
 
@@ -80,6 +83,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                 if (toSend.isFinished()){
                     setFlag((short)-1);
                     System.out.println("WRQ " + wrqfileName + " complete");
+                    wakeKeyboard();
                 }
                 else
                     output = toSend.generatePacket();
@@ -90,8 +94,10 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                 terminate();
 
             // check if need to reset flag
-            if (blockNum == 0 & readFlag() != 2)
+            if (blockNum == 0 & readFlag() != 2) {
                 setFlag((short)-1);
+                wakeKeyboard();
+            }
 
         }
 
@@ -135,6 +141,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
             // Reset flag
             setFlag((short)-1);
+            wakeKeyboard();
         }
 
         return output;
@@ -345,6 +352,20 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
     private void setFlag(short num){
         synchronized (flagLock) {flag = num;}
+    }
+
+    public void waitForResponse(){
+        synchronized (waitingLock) {
+            try {
+                waitingLock.wait();
+            } catch (InterruptedException e) {}
+        }
+    }
+
+    private void wakeKeyboard(){
+        synchronized (waitingLock) {
+            waitingLock.notifyAll();
+        }
     }
 }
 
