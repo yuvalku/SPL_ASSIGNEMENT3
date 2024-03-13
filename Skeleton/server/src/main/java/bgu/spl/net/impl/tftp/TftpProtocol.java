@@ -68,10 +68,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private String uploadingFileName;
     private Queue<byte[]> uploadingFile;
     private int UFsize;
-    private final String directory = "C:\\Users\\omria\\OneDrive\\Desktop\\Assignment3\\SPL_ASSIGNEMENT3\\Skeleton\\server\\Flies";
+    private final String directory = "Skeleton\\server\\Flies";
 
     // C:\Users\omria\OneDrive\Desktop\Assignment3\SPL_ASSIGNEMENT3\Skeleton\server\Flies
     // C:\Users\omria\OneDrive\Desktop\Assignment3\SPL_ASSIGNEMENT3\Skeleton\server\src\main\java\bgu\spl\net\impl\tftp\TftpServer.java
+    //Skeleton\server\Flies
 
     @Override
     public void start(int connectionId, Connections<byte[]> connections) {
