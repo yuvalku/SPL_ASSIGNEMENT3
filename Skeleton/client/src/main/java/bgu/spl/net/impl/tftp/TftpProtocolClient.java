@@ -216,7 +216,7 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
                 byte[] fileName = wrqfileName.getBytes();
                 output = new byte[fileName.length + 2];
                 output[0] = (byte)0;
-                output[1] = (byte)1;
+                output[1] = (byte)2;
                 for (int i = 0; i < fileName.length; i++)
                     output[i + 2] = fileName[i];
             }
