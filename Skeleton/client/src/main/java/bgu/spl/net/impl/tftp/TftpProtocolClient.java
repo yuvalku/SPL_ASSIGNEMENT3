@@ -107,9 +107,9 @@ public class TftpProtocolClient implements MessagingProtocol<byte[]>  {
 
             String added;
             if (msg[2] == (byte)1)
-                added = "Added";
+                added = "add";
             else
-                added = "Deleted";
+                added = "del";
             
             String toPrint = new String(msg, 3, msg.length - 3, StandardCharsets.UTF_8);
             System.out.println("BCAST " + added + " " + toPrint);
